@@ -15,39 +15,38 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-r", "--results", type=str, help="Path to directory with results", default='results_imagenet')
+        "-r", "--results", type=str, help="Path to directory with results", default='results_default')
+    parser.add_argument(
+        "-i", '--images', type=str, help="Path to directory with initial_images", default='imagenet_subset')
+    parser.add_argument(
+        "-j", "--prompt_json", type=str, help='JSON with text prompts', default='texts.json')
+    parser.add_argument(
+        "-k", "--num_samples", type=int, default=2)
     args = parser.parse_args()
-
-    dirs_list = os.listdir(args.results)
-
+    with open('texts.json') as f:
+        prompts = json.load(f)
+    prompts.sort()
+    images_paths = os.listdir(args.images)
+    images_paths.sort()
     results = defaultdict(list)
-    
-    for name in tqdm(dirs_list):
-        dir_path = args.results + '/' + name
 
-        json_path = dir_path + '/data.json'
-        
-        with open(json_path) as f:
-            json_dict = json.load(f)
-
-        results['time'].append(json_dict['time'])
-        results['num_iter'].append(json_dict['num_iter'])
-
-        src_image_path = dir_path + '/input.png'
-        for i in range(json_dict['num_iter']):
-            gen_image_path = dir_path + f'/output_{i}.png'
-            
-            results['clip_score'].append(
-                image_text_clip_score(gen_image_path, json_dict['prompt_tgt'])
-            )
-            results['ssim_score'].append(
+    for prompt in tqdm(prompts):
+        for i, image_path in enumerate(images_paths):
+            src_image_path = os.path.join(args.images, image_path)
+            for k in range(args.num_samples):
+                gen_image_path = os.path.join(args.results, prompt, f"{i}", f"output_{k}.png")
+                results['clip_score'].append(
+                image_text_clip_score(gen_image_path, prompt)
+                )
+                results['ssim_score'].append(
                 ssim_metric(gen_image_path, src_image_path)
-            )
+                )
+                
 
-avg_time = sum(results['time'])/sum(results['num_iter'])
-clip_score = fmean(results['clip_score'])
-ssim_score = fmean(results['ssim_score'])
-print(f'Average time: {avg_time}')
-print(f'Clip_score: {clip_score}')
-print(f'SSIM: {ssim_score}')
+    clip_score = fmean(results['clip_score'])
+    ssim_score = fmean(results['ssim_score'])
+    print(args.results)
+    print(f'Clip_score: {clip_score}')
+    print(f'SSIM: {ssim_score}')
+
 
